@@ -25,7 +25,7 @@ or private configuration ever flow into this repository.
 ## Standards compliance
 
 Assessed against `svelderrainruiz/repo-standards-review`'s `release-gate`
-profile, **version `v0.2.23`** (commit `ba72187`). See
+profile, **version `v0.5.0`** (commit `0cab380`). See
 [`docs/architecture/standards-compliance.md`](docs/architecture/standards-compliance.md)
 for the full gate status and the living re-certification policy,
 [`docs/architecture/adr/ADR-0001-adopt-gitflow-for-release-governance.md`](docs/architecture/adr/ADR-0001-adopt-gitflow-for-release-governance.md)
@@ -62,6 +62,22 @@ risks.
   automatically and never by tracking a floating branch or `latest`.
 
 See [CHANGELOG.md](CHANGELOG.md) for released versions.
+
+### Source-Derived Configuration Prototype
+
+The candidate [.NET source configuration CLI](tools/source-config/README.md)
+derives JSON/TOML drafts from a pinned checkout's existing VIPM manifest and a
+selected packed-library build. Configuration validity requires deterministic
+checks and local Ollama review; native-build proof remains separate. It does
+not register projects, overwrite existing outputs, or enable cleanup.
+
+### Wiki Working Copy
+
+The [wiki working-copy CLI](tools/wiki/README.md) keeps a local, append-only
+copy of the GitHub wiki in PostgreSQL. It seeds the copy from the wiki's
+committed bytes, renders it back byte for byte, and checks for drift. It is
+the base for local AI-assisted wiki regeneration (#307); it never publishes
+to the wiki.
 
 ## What's in this engine
 
