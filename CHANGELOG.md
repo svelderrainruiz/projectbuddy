@@ -4,6 +4,93 @@ All notable changes to this project are documented here. Versions are
 published as immutable GitHub releases (tag + commit SHA); see each
 release's notes for the exact pinned commit.
 
+## Unreleased
+
+- `projectbuddy-ask` 0.4.0 adds the `infer` verb (#358), so the workstation
+  can run batches of prompts on the peer's GPU over the existing forced
+  command.
+  - The request travels as ssh's stdin: `projectbuddy/peer-infer-request@1`,
+    at most 1 MiB of UTF-8 JSON, with 1 to 64 items. Each item has a unique
+    id (`[A-Za-z0-9._:-]{1,64}`), a prompt of at most 64 KiB, and an optional
+    `"json"` format. `temperature` (0 to 2), `seed` and `num_ctx` (512 to
+    32768) are optional, and so is `think` (a boolean, sent as Ollama's
+    top-level `think`). Any other key, including `num_predict`, or an
+    out-of-range value is refused (exit 64).
+  - The model must be in the peer's deployment-written allowlist at
+    `%ProgramData%\ProjectBuddy\peer-ask\infer\allowlist.json`. The
+    format is `projectbuddy/peer-infer-allowlist@3`, in which each model has
+    a name, a pinned digest, and optional `ports` and `itemTimeoutSeconds`.
+    `@2` files (without `itemTimeoutSeconds`) and `@1` files (without
+    `ports` either) are still accepted, with the defaults.
+  - `ports` is a non-empty, distinct subset of the fixed set 11434 (NVIDIA
+    GPU) and 11435 (Intel Arc iGPU, Vulkan), and defaults to `[11434]`. The
+    model must be installed with exactly its pinned digest on every listed
+    port's server. The peer never pulls models.
+  - Each item is one `/api/chat` call to a loopback Ollama through the
+    shared `ProjectBuddy.PeerOllama` client. Workers on each listed port
+    take items from one shared queue, so one batch keeps both accelerators
+    busy.
+  - Host facts give 11434 four workers and 11435 two. Each must equal its
+    server's `OLLAMA_NUM_PARALLEL` (deployment sets 4 and 2), so items never
+    queue inside Ollama and the item timeout covers generation, not
+    queueing.
+  - Each model's `itemTimeoutSeconds` (30 to 900, default 120) bounds its
+    digest check and each of its items, so a slow accelerator or a
+    reasoning model can have longer than 120 s. The whole call, from reading
+    the request to the last answer, has a fixed 1800 s; a batch must fit in
+    it. Any failure fails the whole call (exit 66), with no partial answer.
+  - The peer always caps generation at `num_predict` 4096 tokens per item,
+    thinking included. Only the final message content is returned, never
+    the thinking text. One answer over 16 KiB of UTF-8 fails the call with
+    the output-limit exit code (65) and its fixed message.
+  - The answer holds only the model's output, its counters and the `port`
+    that answered, per id, and is at most 1 MiB. Every other verb keeps its
+    16 KiB limit and its behaviour.
+  - `ask infer --request <file>` sends the file's bytes with the same fixed
+    ssh invocation. It waits the peer's fixed 1800 s plus 20 s and the
+    connect timeout, and checks that every requested id is answered exactly
+    once, from an allowed port.
+- The `projectbuddy` identity moves to 0.3, because its pinned
+  `tools/peer/README.md` now documents `diagnose` and `infer`: 0.2 with the
+  verb, and 0.3 with per-model item timeouts. The generator now names the
+  model `projectbuddy:0.3-<base>`.
+  - `projectbuddy-probes` follows: its default `--identity`
+    (`ProbeOptions.IdentityModel`) is now `projectbuddy:0.3-qwen2.5-7b`. A
+    test ties it to `identity.json`'s version, so a later bump cannot drift.
+  - `projectbuddy-diagnose` uses that default, so its `ollama-empty`
+    question reports `identity-present` only when the 0.3 identity is
+    installed. Rebuild the identity on the peer before deploying probes or
+    diagnose from this release.
+- The RSR pins move to v0.10.0 (#364): the consumer kit, the standards scan,
+  and projectbuddy-wiki's standard pin, which is now
+  `rsr/ecosystem-wiki-standard@6`. In `@6`, when a stimulus step runs a test
+  file, each Required observation item names one test case verbatim, as
+  `` `file` › describe chain › title ``. A new observation check judges those
+  items, with the consumer kit's newly vendored
+  `.repo-standards-review/observations.py`. Conformance is unchanged.
+  Re-certification at v0.10.0 found no regression: the 5 required gates
+  `PASS`.
+- `scripts/Assemble-WikiSpec.py` accepts multi-line ID-page sections (#366),
+  so test pages can hold the numbered stimulus steps and observation lists
+  of `rsr/ecosystem-wiki-standard@7`.
+  - The hub table cell joins the section's lines with `<br>`, so each row
+    stays on one line. Splitting the cell at `<br>` gives the section text
+    back.
+  - A section is still one blank line, its text, then a blank line. The text
+    may not start or end with whitespace or contain a `## ` heading line.
+    The assembler also refuses, in a section or a title, a literal `<br>` in
+    any letter case, and an unescaped `|` or a code fence line
+    (```` ``` ```` or `~~~`) on any line. A table cell cannot hold a fenced
+    block, and on the page a fence would hide its lines from `--strict`.
+    `--strict` link, budget and ID-mention checks cover every line.
+  - `--strict` does not require ID mentions to be linked in test-case items.
+    These are list items starting with `` `<path>` › `` in a `TEST-###`
+    page's `Required observation` section, because the text after ` › ` is
+    the test runner's verbatim case name. The lead-in sentence, every other
+    line and every other section, such as a requirement's `TestID`, are
+    still checked.
+  - One-line pages assemble to the same bytes as before.
+
 ## v0.5.0
 
 - `projectbuddy-wiki` lets one profile scope declare several ID prefixes
