@@ -6,6 +6,15 @@ release's notes for the exact pinned commit.
 
 ## Unreleased
 
+- KPI meter fixes (#391, #392). `projectbuddy-hooks sessions-set --work-ref` writes a work marker when a session's ref
+  is first set (backdated to the session's start) or changed, `kpi mark` skips an unchanged item, and the sync marks
+  before it ingests, so a one-turn worker's calls attribute to its item. `projectbuddy-kpi quota` adds the AIU of
+  calls after the newest snapshot to `spendUsd` and reports `snapshotAgeHours`, `unitsSinceSnapshot` and `snapshotStale`.
+
+- Pins RSR `v0.12.0` and `rsr/ecosystem-wiki-standard@8` (#387): the consumer kit, `projectbuddy-wiki`'s
+  standard pin, the standards scan checkout and the compliance stamp. The checker's logic is unchanged. The
+  wiki's 30 test pages declare their linked requirements `not verified here` instead of claiming coverage.
+
 - `projectbuddy-ask` 0.4.0 adds the `infer` verb (#358), so the workstation
   can run batches of prompts on the peer's GPU over the existing forced
   command.
@@ -90,6 +99,30 @@ release's notes for the exact pinned commit.
     line and every other section, such as a requirement's `TestID`, are
     still checked.
   - One-line pages assemble to the same bytes as before.
+- The RSR pins move to v0.11.0 (#369): the consumer kit, the standards scan,
+  and projectbuddy-wiki's standard pin, which is now
+  `rsr/ecosystem-wiki-standard@7`. In `@7`, a test-case item may instead be
+  a file item, `` `file` ``, which requires every test case of that file to
+  pass. The vendored `.repo-standards-review/observations.py` adds
+  `evidence --format pytest-junit` and `stimulus`. Conformance is unchanged.
+  This repository's wiki passes the observation check for 30 test pages
+  (#366). Re-certification at v0.11.0 found no regression: the 5 required
+  gates `PASS`.
+- `projectbuddy-kpi` ingests the local AI farm's telemetry (ALW#10).
+  - Migration `0004_farm_telemetry.sql` adds `kpi_v1.farm_jobs` and
+    `kpi_v1.farm_device_samples`, and the views `farm_device_utilization` and
+    `farm_workloads`. The jobs per second and the cache hit rate are computed
+    in `farm_report()`.
+  - `ingest-farm --export <file>` reads the counts-and-timings export that
+    assurance-learning-workbench's `export-farm-telemetry` writes. Rows are
+    keyed by the farm run record's sha256, so ingesting again changes
+    nothing, and an export that changes an ingested row is refused.
+  - The AIU avoided is an estimate from each workload's reference cost,
+    `farm_reference_aiu_per_job:<workload>` in `kpi_v1.settings`, set with
+    `farm-reference` from measured paid runs. It is reported apart from the
+    measured AIU.
+  - `report` adds these figures under `farm` and leaves every other figure
+    unchanged. A peer instance has jobs but no device utilization.
 
 ## v0.5.0
 
